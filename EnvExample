@@ -1,0 +1,41 @@
+# Скопируйте в .env и заполните значения (файл .env уже используется локально и не коммитится).
+
+# --- ProxyAPI (OpenAI-совместимый шлюз) ---
+# Документация: https://proxyapi.ru/docs/openai-compatible-api
+# В SDK OpenAI передаётся как base_url (без завершающего слэша или с — по доке SDK).
+OPENAI_BASE_URL=https://openai.api.proxyapi.ru/v1
+# Ключ ProxyAPI (достаточно одного из двух имён переменной):
+OPENAI_API_KEY=
+PROXY_API_KEY=
+# Имя модели в формате провайдер/модель, например: openai/gpt-4o-mini
+OPENAI_MODEL=openai/gpt-4o-mini
+
+# --- Приложение ---
+APP_ENV=development
+LOG_LEVEL=INFO
+LOG_DIR=logs
+LOG_FILE_MAX_MB=5
+LOG_BACKUP_COUNT=5
+CHAT_LOG_PREVIEW_CHARS=400
+
+# --- База данных ---
+# SQLite (пример): sqlite:///./assistant_dm.db
+# PostgreSQL (пример): postgresql+asyncpg://user:pass@localhost:5432/assistant_dm
+DATABASE_URL=sqlite:///./assistant_dm.db
+# Сколько последних сообщений истории уходит в LLM (пары user/assistant)
+CHAT_HISTORY_LIMIT=40
+
+# --- Telegram: уведомления специалисту о новой заявке ---
+TELEGRAM_BOT_TOKEN=
+# ID чата (личка с ботом или группа/супергруппа, куда бот может писать)
+TELEGRAM_LEAD_CHAT_ID=
+
+# --- Почта: опциональная копия заявки для отчётности ---
+EMAIL_LEADS_ENABLED=false
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_USE_TLS=true
+EMAIL_FROM=
+EMAIL_TO=
