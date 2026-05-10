@@ -3,152 +3,369 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ассистент — тест</title>
+  <title>Чат — Александр</title>
   <style>
     :root {
-      --bg: #0d1117;
-      --panel: #161b22;
-      --border: #30363d;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --accent: #58a6ff;
-      --user: #3fb950;
-      --bot: #d2a8ff;
+      --header-blue: #2f6feb;
+      --header-blue-dark: #2566d8;
+      --bubble-user: #cfe5fc;
+      --bubble-bot: #eceff4;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --online: #22c55e;
+      --border: #e5e7eb;
+      --shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-      background: radial-gradient(1200px 600px at 10% -10%, #1f2937 0%, var(--bg) 55%);
+      font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(160deg, #eef2f7 0%, #e2e8f0 100%);
       color: var(--text);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1.25rem;
+      justify-content: flex-start;
+      padding: 1.5rem 1rem 2rem;
     }
-    h1 {
-      font-size: 1rem;
+    .page-title {
+      font-size: 0.8125rem;
       font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--muted);
-      margin: 0 0 0.75rem;
+      color: var(--text-muted);
+      margin: 0 0 1rem;
+      letter-spacing: 0.02em;
     }
-    .shell {
-      width: min(720px, 100%);
+    .widget {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      max-height: min(720px, calc(100vh - 5rem));
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .widget.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px) scale(0.96);
+      position: absolute;
+      width: min(400px, 100%);
+    }
+    .widget-header {
+      background: linear-gradient(180deg, var(--header-blue) 0%, var(--header-blue-dark) 100%);
+      color: #fff;
+      padding: 0.85rem 0.75rem 0.85rem 0.9rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+    .avatar-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .avatar-wrap img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      display: block;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .online {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 11px;
+      height: 11px;
+      background: var(--online);
+      border-radius: 50%;
+      border: 2px solid var(--header-blue-dark);
+    }
+    .hdr-text { min-width: 0; }
+    .hdr-name {
+      font-weight: 700;
+      font-size: 1rem;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+    }
+    .hdr-role {
+      font-size: 0.8125rem;
+      opacity: 0.92;
+      margin-top: 0.1rem;
+    }
+    .hdr-typing {
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      opacity: 0.75;
+      font-style: italic;
+    }
+    .hdr-typing[hidden] { display: none !important; }
+    .hdr-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      font-size: 1.25rem;
+      line-height: 1;
+      opacity: 0.95;
+    }
+    .icon-btn:hover { background: rgba(255, 255, 255, 0.15); }
+    .icon-btn.sound-on { font-size: 1rem; }
+    .handoff-banner {
+      display: none;
+      padding: 0.45rem 0.75rem;
+      background: #eff6ff;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: #1e40af;
+      line-height: 1.35;
+    }
+    .handoff-banner.visible { display: block; }
+    .handoff-banner strong { color: #1e3a8a; font-weight: 600; }
+    .chat-wrap {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+      min-height: 0;
+      background: #fafafa;
     }
-    .bar {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.55rem 0.75rem;
-      background: #21262d;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot-r { background: #ff5f56; }
-    .dot-y { background: #ffbd2e; }
-    .dot-g { background: #27c93f; }
-    .bar-title { flex: 1; text-align: center; padding-right: 24px; }
-    #log {
+    .chat-scroll {
       flex: 1;
       overflow-y: auto;
-      padding: 1rem;
-      font-size: 0.85rem;
-      line-height: 1.45;
+      padding: 0.75rem 0.65rem 1rem;
       scroll-behavior: smooth;
+      min-height: 160px;
     }
-    .line { margin: 0 0 0.85rem; white-space: pre-wrap; word-break: break-word; }
-    .meta { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
-    .user .meta { color: var(--user); }
-    .assistant .meta { color: var(--bot); }
-    .system .meta { color: var(--accent); }
-    .input-row {
+    .date-sep {
+      text-align: center;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      margin: 0.25rem 0 0.85rem;
+    }
+    .msg-row {
       display: flex;
-      gap: 0.5rem;
-      padding: 0.65rem;
+      margin-bottom: 0.65rem;
+    }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.assistant { justify-content: flex-start; }
+    .msg-row.system { justify-content: center; }
+    .bubble {
+      max-width: 88%;
+      border-radius: 14px;
+      padding: 0.55rem 0.7rem 0.35rem;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      position: relative;
+    }
+    .bubble.assistant {
+      background: var(--bubble-bot);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.user {
+      background: var(--bubble-user);
+      color: var(--text);
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.system {
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      max-width: 95%;
+      text-align: center;
+      padding: 0.25rem 0.5rem;
+    }
+    .bubble-text { padding-bottom: 0.15rem; }
+    .bubble-foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.25rem;
+      margin-top: 0.15rem;
+    }
+    .bubble-time {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      opacity: 0.85;
+    }
+    .bubble.user .bubble-foot .bubble-time { color: #4b5563; }
+    .read-check {
+      display: inline-flex;
+      color: var(--header-blue);
+      font-size: 0.7rem;
+      line-height: 1;
+      letter-spacing: -0.12em;
+      margin-left: 0.1rem;
+    }
+    .composer {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.45rem;
+      padding: 0.55rem 0.65rem 0.65rem;
+      background: #fff;
       border-top: 1px solid var(--border);
-      background: #0d1117;
+      flex-shrink: 0;
     }
     #msg {
       flex: 1;
-      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 0.55rem 0.65rem;
+      border-radius: 14px;
+      padding: 0.55rem 0.85rem;
       font: inherit;
+      font-size: 0.875rem;
+      line-height: 1.45;
       outline: none;
+      background: #f9fafb;
+      min-height: 5.5rem;
+      max-height: 14rem;
+      resize: vertical;
+      width: 100%;
     }
-    #msg:focus { border-color: var(--accent); }
-    button {
-      font: inherit;
-      cursor: pointer;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: #21262d;
-      color: var(--text);
-      padding: 0.45rem 0.85rem;
+    #msg:focus {
+      border-color: var(--header-blue);
+      background: #fff;
     }
-    button.primary {
-      border-color: #1f6feb;
-      background: #238636;
+    #send {
+      flex-shrink: 0;
+      align-self: flex-end;
+      border: none;
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      background: var(--header-blue);
       color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      line-height: 1;
+      transition: background 0.15s;
     }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .toolbar {
+    #send:hover { background: var(--header-blue-dark); }
+    #send:disabled { opacity: 0.45; cursor: not-allowed; }
+    .widget-footer-actions {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.6rem;
-      flex-wrap: wrap;
       justify-content: center;
+      flex-wrap: wrap;
+      padding: 0 0.65rem 0.65rem;
+      background: #fff;
     }
-    .hint { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; text-align: center; max-width: 720px; }
-    .handoff-banner {
-      display: none;
-      padding: 0.5rem 0.75rem;
-      background: rgba(88, 166, 255, 0.1);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.74rem;
-      color: #79c0ff;
-      line-height: 1.4;
+    .widget-footer-actions button {
+      font: inherit;
+      font-size: 0.72rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #f9fafb;
+      color: var(--text-muted);
+      cursor: pointer;
     }
-    .handoff-banner.visible { display: block; }
-    .handoff-banner strong { color: var(--text); font-weight: 600; }
+    .widget-footer-actions button:hover {
+      border-color: #cbd5e1;
+      color: var(--text);
+    }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 1rem;
+      text-align: center;
+      max-width: 420px;
+      line-height: 1.45;
+    }
+    .hint code { font-size: 0.68rem; background: #e5e7eb; padding: 0.1rem 0.25rem; border-radius: 4px; }
+    .fab-reopen {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: var(--header-blue);
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(47, 111, 235, 0.45);
+      z-index: 10;
+    }
+    .fab-reopen[hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <h1>Тест ассистента (локально)</h1>
-  <div class="shell">
-    <div class="bar">
-      <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
-      <span class="bar-title">assistant_dm — chat</span>
-    </div>
+  <p class="page-title">Виджет ассистента (локальный тест)</p>
+
+  <div class="widget" id="widget" aria-label="Чат с менеджером">
+    <header class="widget-header">
+      <div class="hdr-left">
+        <div class="avatar-wrap">
+          <img src="avatar.png" width="44" height="44" alt="" />
+          <span class="online" title="На связи"></span>
+        </div>
+        <div class="hdr-text">
+          <div class="hdr-name">Александр</div>
+          <div class="hdr-role">менеджер</div>
+          <div class="hdr-typing" id="typing-status" hidden>… Печатает</div>
+        </div>
+      </div>
+      <div class="hdr-actions">
+        <button type="button" class="icon-btn" id="widget-close" aria-label="Закрыть чат">×</button>
+        <button type="button" class="icon-btn sound-on" id="sound-toggle" aria-label="Уведомления" title="Звук ответов">🔔</button>
+      </div>
+    </header>
+
     <div id="handoff-banner" class="handoff-banner" role="status">
       <strong>Заявка уже у специалиста.</strong>
-      Дальше вы общаетесь с ассистентом по новым вопросам — имя и телефон из диалога переданы, повторно их спрашивать не должны.
+      Контакты из диалога переданы менеджеру — повторно имя и телефон спрашивать не должны.
     </div>
-    <div id="log" aria-live="polite"></div>
-    <div class="input-row">
-      <input id="msg" type="text" maxlength="12000" autocomplete="off" placeholder="Введите сообщение и Enter…" />
-      <button type="button" class="primary" id="send">Отправить</button>
+
+    <div class="chat-wrap">
+      <div id="log" class="chat-scroll" aria-live="polite"></div>
+    </div>
+
+    <div class="composer">
+      <textarea id="msg" rows="4" maxlength="12000" autocomplete="off" placeholder="Напишите сообщение… (Enter — отправить, Shift+Enter — новая строка)"></textarea>
+      <button type="button" id="send" title="Отправить" aria-label="Отправить">➤</button>
+    </div>
+
+    <div class="widget-footer-actions">
+      <button type="button" id="reset">Новая сессия</button>
+      <button type="button" id="hello">Пример: про тренинги</button>
     </div>
   </div>
-  <div class="toolbar">
-    <button type="button" id="reset">Новая сессия</button>
-    <button type="button" id="hello">Приветствие</button>
-  </div>
-  <p class="hint">Откройте с того же хоста, что и API (например <code>http://127.0.0.1:8000/ui/</code>), чтобы запросы шли без CORS-проблем. Логи сервера — в папке <code>logs/</code>.</p>
+
+  <button type="button" class="fab-reopen" id="widget-reopen" hidden aria-label="Открыть чат">💬</button>
+
+  <p class="hint">
+    Откройте с того же хоста, что и API: <code>http://127.0.0.1:8000/ui/</code>.
+    Заявка в Telegram уходит, если в <code>.env</code> заданы и <strong>TELEGRAM_BOT_TOKEN</strong>, и <strong>TELEGRAM_LEAD_CHAT_ID</strong>
+    (ID чата можно узнать у <code>@userinfobot</code> или добавив бота в группу и взяв id группы).
+    Для проверки без диалога: <code>python scripts/test_telegram.py</code>.
+  </p>
 
   <script>
     const STORAGE_KEY = "assistant_dm_session_id";
@@ -161,6 +378,17 @@
     const handoffBanner = document.getElementById("handoff-banner");
     const input = document.getElementById("msg");
     const sendBtn = document.getElementById("send");
+    const typingStatus = document.getElementById("typing-status");
+    const widgetEl = document.getElementById("widget");
+    const widgetClose = document.getElementById("widget-close");
+    const widgetReopen = document.getElementById("widget-reopen");
+    const helloBtn = document.getElementById("hello");
+
+    function setSending(on) {
+      input.disabled = on;
+      sendBtn.disabled = on;
+      helloBtn.disabled = on;
+    }
 
     function apiBase() {
       return "";
@@ -187,36 +415,80 @@
       handoffBanner.classList.toggle("visible", Boolean(on));
     }
 
-    function append(role, text) {
-      const wrap = document.createElement("div");
-      wrap.className = "line " + role;
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent =
-        role === "user"
-          ? "> вы"
-          : role === "assistant"
-          ? "— ассистент"
-          : "— система";
+    function nowTimeLabel() {
+      const d = new Date();
+      return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function nowDateSepLabel() {
+      const d = new Date();
+      return (
+        d.toLocaleDateString("ru-RU", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }) +
+        " " +
+        d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+      );
+    }
+
+    function setTypingHeader(on) {
+      typingStatus.hidden = !on;
+    }
+
+    function appendDateSeparator() {
+      const row = document.createElement("div");
+      row.className = "date-sep";
+      row.textContent = nowDateSepLabel();
+      logEl.appendChild(row);
+    }
+
+    function appendBubble(role, text, opts) {
+      const row = document.createElement("div");
+      row.className = "msg-row " + role;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
       const body = document.createElement("div");
+      body.className = "bubble-text";
       body.textContent = text;
-      wrap.appendChild(meta);
-      wrap.appendChild(body);
-      logEl.appendChild(wrap);
+      bubble.appendChild(body);
+      const foot = document.createElement("div");
+      foot.className = "bubble-foot";
+      const t = document.createElement("span");
+      t.className = "bubble-time";
+      t.textContent = nowTimeLabel();
+      foot.appendChild(t);
+      if (role === "user") {
+        const checks = document.createElement("span");
+        checks.className = "read-check";
+        checks.textContent = "✓✓";
+        checks.title = "Доставлено";
+        foot.appendChild(checks);
+      }
+      bubble.appendChild(foot);
+      row.appendChild(bubble);
+      logEl.appendChild(row);
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    /** Печать ответа ассистента с эффектом набора (ускорение на длинных текстах). */
     function appendAssistantTyping(fullText) {
-      const wrap = document.createElement("div");
-      wrap.className = "line assistant";
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent = "— ассистент";
+      const row = document.createElement("div");
+      row.className = "msg-row assistant";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble assistant";
       const body = document.createElement("div");
-      wrap.appendChild(meta);
-      wrap.appendChild(body);
-      logEl.appendChild(wrap);
+      body.className = "bubble-text";
+      bubble.appendChild(body);
+      const foot = document.createElement("div");
+      foot.className = "bubble-foot";
+      const t = document.createElement("span");
+      t.className = "bubble-time";
+      t.textContent = nowTimeLabel();
+      foot.appendChild(t);
+      bubble.appendChild(foot);
+      row.appendChild(bubble);
+      logEl.appendChild(row);
 
       const n = fullText.length;
       let chunk = 1;
@@ -253,12 +525,29 @@
       });
     }
 
+    let soundEnabled = true;
+    document.getElementById("sound-toggle").addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      document.getElementById("sound-toggle").textContent = soundEnabled ? "🔔" : "🔕";
+    });
+
+    widgetClose.addEventListener("click", () => {
+      widgetEl.classList.add("hidden");
+      widgetReopen.hidden = false;
+    });
+    widgetReopen.addEventListener("click", () => {
+      widgetEl.classList.remove("hidden");
+      widgetReopen.hidden = true;
+      input.focus();
+    });
+
     async function sendMessage(text) {
       const trimmed = text.trim();
       if (!trimmed) return;
-      append("user", trimmed);
+      appendBubble("user", trimmed);
       input.value = "";
-      sendBtn.disabled = true;
+      setSending(true);
+      setTypingHeader(true);
       try {
         const sid = sessionId();
         const res = await fetch(apiBase() + "/api/chat", {
@@ -268,7 +557,8 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          append("system", "Ошибка " + res.status + ": " + (data.detail || JSON.stringify(data)));
+          setTypingHeader(false);
+          appendBubble("system", "Ошибка " + res.status + ": " + (data.detail || JSON.stringify(data)));
           return;
         }
         if (data.session_id) sessionStorage.setItem(STORAGE_KEY, data.session_id);
@@ -276,10 +566,27 @@
         if (data.session_has_lead) sessionStorage.setItem(leadStorageKey(sidFinal), "1");
         syncHandoffBanner();
         await appendAssistantTyping(data.reply || "(пустой ответ)");
+        if (soundEnabled && typeof Audio !== "undefined") {
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.frequency.value = 880;
+            g.gain.value = 0.03;
+            o.start();
+            setTimeout(() => {
+              o.stop();
+              ctx.close();
+            }, 60);
+          } catch (_) {}
+        }
       } catch (e) {
-        append("system", "Сеть: " + (e && e.message ? e.message : String(e)));
+        appendBubble("system", "Сеть: " + (e && e.message ? e.message : String(e)));
       } finally {
-        sendBtn.disabled = false;
+        setTypingHeader(false);
+        setSending(false);
         input.focus();
       }
     }
@@ -297,7 +604,15 @@
       clearSession();
       logEl.innerHTML = "";
       syncHandoffBanner();
-      append("system", "Новая сессия. session_id сброшен.");
+      appendDateSeparator();
+      appendBubble(
+        "assistant",
+        "Приветствую Вас! Я ассистент Дмитрия Мальцева. Напишите, какой тренинг вас интересует, а я отвечу на ваши вопросы."
+      );
+      appendBubble(
+        "system",
+        "Новая сессия: контекст на сервере привязан к session_id — он обновлён."
+      );
       input.focus();
     });
 
@@ -305,11 +620,10 @@
       sendMessage("Здравствуйте! Какие у вас есть тренинги?");
     });
 
-    append(
-      "system",
-      "Готов к диалогу. session_id: " +
-        sessionId().slice(0, 8) +
-        "… — страница «Новая сессия» сбросит контекст на сервере только после смены id (кнопка ниже)."
+    appendDateSeparator();
+    appendBubble(
+      "assistant",
+      "Приветствую Вас! Я ассистент Дмитрия Мальцева. Напишите, какой тренинг вас интересует, а я отвечу на ваши вопросы."
     );
     syncHandoffBanner();
     input.focus();

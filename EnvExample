@@ -26,9 +26,13 @@ DATABASE_URL=sqlite:///./assistant_dm.db
 CHAT_HISTORY_LIMIT=40
 
 # --- Telegram: уведомления специалисту о новой заявке ---
+# Нужны ОБА параметра: без TELEGRAM_LEAD_CHAT_ID сообщение в Telegram не отправится.
 TELEGRAM_BOT_TOKEN=
-# ID чата (личка с ботом или группа/супергруппа, куда бот может писать)
+# Числовой ID (например 123456789) или для супергруппы -100...
+# Личка: напишите боту /start, затем узнайте свой id у @userinfobot и подставьте сюда.
 TELEGRAM_LEAD_CHAT_ID=
+
+# Проверка: python scripts/test_telegram.py
 
 # --- Почта: опциональная копия заявки для отчётности ---
 EMAIL_LEADS_ENABLED=false

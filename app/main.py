@@ -69,6 +69,8 @@ def chat(
             session_id=body.session_id,
             user_text=body.message.strip(),
             user_agent=user_agent,
+            prefill_display_name=body.prefill_display_name,
+            prefill_phone=body.prefill_phone,
         )
         reply_preview = reply.replace("\r", " ").replace("\n", " ")
         if len(reply_preview) > preview:

@@ -12,25 +12,34 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.knowledge import build_system_instructions, load_knowledge_bundle
-from app.lead_service import parse_tool_arguments, submit_lead_from_tool
+from app.lead_service import (
+    normalize_phone_for_storage,
+    parse_tool_arguments,
+    phone_for_display,
+    submit_lead_from_tool,
+)
 from app.llm import SUBMIT_LEAD_TOOL, chat_completion
 from app.models import ChatMessage, ChatSession, Lead
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_CACHE: str | None = None
+_PROMPT_TEXT: str | None = None
+_PROMPT_MTIME: float | None = None
 
 
 def _load_prompt_system_text() -> str:
-    global _PROMPT_CACHE
-    if _PROMPT_CACHE is not None:
-        return _PROMPT_CACHE
+    """Читает prompt_system.txt; при изменении файла на диске подхватывает новую версию без перезапуска процесса."""
+    global _PROMPT_TEXT, _PROMPT_MTIME
     path = Path(__file__).resolve().parent.parent / "prompt_system.txt"
-    if path.is_file():
-        _PROMPT_CACHE = path.read_text(encoding="utf-8")
-    else:
-        _PROMPT_CACHE = "Ты — вежливый ассистент по корпоративным тренингам."
-    return _PROMPT_CACHE
+    if not path.is_file():
+        return "Ты — вежливый ассистент по корпоративным тренингам."
+    mtime = path.stat().st_mtime
+    if _PROMPT_TEXT is not None and _PROMPT_MTIME == mtime:
+        return _PROMPT_TEXT
+    _PROMPT_TEXT = path.read_text(encoding="utf-8")
+    _PROMPT_MTIME = mtime
+    logger.debug("prompt_system.txt перечитан (mtime=%s)", mtime)
+    return _PROMPT_TEXT
 
 
 def _ensure_session(db: Session, session_id: str | None, user_agent: str | None) -> str:
@@ -46,6 +55,64 @@ def _ensure_session(db: Session, session_id: str | None, user_agent: str | None)
         row.user_agent = user_agent
         db.commit()
     return sid
+
+
+def _merge_session_prefill(
+    db: Session,
+    sid: str,
+    name: str | None,
+    phone: str | None,
+) -> None:
+    if name is None and phone is None:
+        return
+    row = db.get(ChatSession, sid)
+    if row is None:
+        return
+    meta: dict = {}
+    if row.metadata_json:
+        try:
+            meta = json.loads(row.metadata_json)
+        except json.JSONDecodeError:
+            meta = {}
+    changed = False
+    if name is not None and str(name).strip():
+        meta["prefill_display_name"] = str(name).strip()[:200]
+        changed = True
+    if phone is not None and str(phone).strip():
+        pn = normalize_phone_for_storage(str(phone).strip())
+        if pn:
+            meta["prefill_phone"] = pn
+            changed = True
+    if changed:
+        row.metadata_json = json.dumps(meta, ensure_ascii=False)
+        db.commit()
+
+
+def _prefill_system_note(db: Session, sid: str) -> str:
+    row = db.get(ChatSession, sid)
+    if not row or not row.metadata_json:
+        return ""
+    try:
+        meta = json.loads(row.metadata_json)
+    except json.JSONDecodeError:
+        return ""
+    name = meta.get("prefill_display_name")
+    phone = meta.get("prefill_phone")
+    if not name and not phone:
+        return ""
+    parts: list[str] = []
+    if name:
+        parts.append(f"как обращаться — {name}")
+    if phone:
+        parts.append(f"телефон — {phone_for_display(phone)}")
+    return (
+        "\n\n[Данные из формы виджета] Клиент указал: "
+        + "; ".join(parts)
+        + ". При вызове submit_lead подставь эти значения в display_name и phone, "
+        "если в тексте переписки клиент не указал явно другие. Номер в инструмент можно передать как у клиента — "
+        "сервер нормализует цифры. Не переспрашивай имя и телефон без необходимости; "
+        "уточни тему/тренинг, удобное время связи и явное согласие на передачу контакта специалисту."
+    )
 
 
 def _session_has_lead(db: Session, session_id: str) -> bool:
@@ -92,7 +159,13 @@ def _append_assistant_for_tools(msg) -> dict:
 
 
 def run_turn(
-    db: Session, *, session_id: str | None, user_text: str, user_agent: str | None
+    db: Session,
+    *,
+    session_id: str | None,
+    user_text: str,
+    user_agent: str | None,
+    prefill_display_name: str | None = None,
+    prefill_phone: str | None = None,
 ) -> tuple[str, str, bool]:
     """
     Сохраняет сообщение пользователя, вызывает LLM с возможными tool_calls submit_lead,
@@ -102,7 +175,9 @@ def run_turn(
         raise RuntimeError("OPENAI_API_KEY не задан")
 
     sid = _ensure_session(db, session_id, user_agent)
+    _merge_session_prefill(db, sid, prefill_display_name, prefill_phone)
     system_full = build_system_instructions(_load_prompt_system_text(), load_knowledge_bundle())
+    system_full += _prefill_system_note(db, sid)
     if _session_has_lead(db, sid):
         system_full += _LEAD_ALREADY_SENT_NOTE
 

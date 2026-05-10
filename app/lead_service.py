@@ -17,8 +17,50 @@ from app.telegram_notify import send_lead_message
 logger = logging.getLogger(__name__)
 
 
-def _normalize_phone(phone: str) -> str:
-    return "".join(ch for ch in phone.strip() if not ch.isspace())
+def normalize_phone_for_storage(phone: str) -> str:
+    """
+    Убирает пробелы, скобки, дефисы и др.; для типичных РФ-номеров даёт 11 цифр с ведущей 7.
+    Примеры: 89766758495, +7 964 ..., 8 (495) 739-00-08 → 79766758495, 79643426354, 74957390008.
+    Иностранные номера — как последовательность цифр (от 10 знаков), без принудительной 7.
+    """
+    d = "".join(c for c in (phone or "").strip() if c.isdigit())
+    if not d:
+        return ""
+
+    if len(d) == 11 and d[0] == "8":
+        d = "7" + d[1:]
+    if len(d) == 11 and d[0] == "7":
+        return d
+    if len(d) == 10 and d[0] == "9":
+        return "7" + d
+    if len(d) == 10 and (
+        d.startswith("495")
+        or d.startswith("499")
+        or d.startswith("812")
+        or d.startswith("383")
+        or d.startswith("391")
+    ):
+        return "7" + d
+    if len(d) >= 10:
+        return d
+    return ""
+
+
+def phone_for_display(stored_digits: str) -> str:
+    """Человекочитаемый вид для Telegram и отображения."""
+    if len(stored_digits) == 11 and stored_digits.startswith("7"):
+        return (
+            "+7 "
+            + "("
+            + stored_digits[1:4]
+            + ") "
+            + stored_digits[4:7]
+            + "-"
+            + stored_digits[7:9]
+            + "-"
+            + stored_digits[9:11]
+        )
+    return stored_digits
 
 
 def format_lead_telegram_text(
@@ -29,20 +71,17 @@ def format_lead_telegram_text(
     preferred_contact_at: str | None,
     topic: str | None,
     notes: str | None,
-    session_id: str | None,
 ) -> str:
     lines = [
         "Новая заявка с сайта (ассистент)",
         f"ID: {lead_id}",
         f"Имя: {display_name or '—'}",
-        f"Телефон: {phone}",
+        f"Телефон: {phone_for_display(phone)}",
         f"Удобное время: {preferred_contact_at or '—'}",
         f"Тема: {topic or '—'}",
     ]
     if notes:
         lines.append(f"Комментарий: {notes}")
-    if session_id:
-        lines.append(f"session_id: {session_id}")
     return "\n".join(lines)
 
 
@@ -62,9 +101,22 @@ def submit_lead_from_tool(
     topic = (args.get("topic") or "").strip() or None
     notes = (args.get("notes") or "").strip() or None
 
-    phone = _normalize_phone(phone_raw)
-    if len(phone) < 5:
-        return {"ok": False, "error": "Укажите корректный номер телефона"}
+    if not display_name or len(display_name) < 2:
+        return {
+            "ok": False,
+            "error": "Не передано имя: сначала спросите, как обращаться, и вызовите submit_lead с непустым display_name из ответа клиента.",
+        }
+
+    bogus_names = {"—", "-", ".", "клиент", "client", "user", "пользователь", "не указано", "нет", "нет имени"}
+    if display_name.lower() in bogus_names:
+        return {
+            "ok": False,
+            "error": "Нужно реальное имя или форма обращения от клиента, не заглушка.",
+        }
+
+    phone = normalize_phone_for_storage(phone_raw)
+    if len(phone) < 10:
+        return {"ok": False, "error": "Укажите корректный номер телефона (минимум 10 цифр после нормализации)."}
 
     if session_id:
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
@@ -79,11 +131,25 @@ def submit_lead_from_tool(
             .limit(1)
         ).first()
         if dup is not None:
+            # Раньше дубликат не слал Telegram — кажется «заявка принята, а в канале тишина».
+            dup_note = (
+                "Повторная заявка (тот же номер недавно в этой же сессии)\n"
+                f"Лид уже был: #{dup.id}\n"
+                f"Имя (новая попытка): {display_name}\n"
+                f"Удобное время: {preferred_contact_at or '—'}\n"
+                f"Тема: {topic or '—'}"
+                + (f"\nКомментарий: {notes}" if notes else "")
+            )
+            tg_ok, tg_mid, tg_err = send_lead_message(dup_note)
+            if not tg_ok and tg_err:
+                logger.warning("Duplicate lead telegram: %s", tg_err)
             return {
                 "ok": True,
                 "duplicate": True,
                 "lead_id": dup.id,
-                "message": "Заявка с этим номером недавно уже создана в этой сессии.",
+                "message": "Заявка с этим номером недавно уже была в этой сессии; данные сохранены. Уведомление отправлено повторно.",
+                "telegram_notified": bool(tg_ok),
+                "telegram_error": tg_err,
             }
 
     lead = Lead(
@@ -105,7 +171,6 @@ def submit_lead_from_tool(
         preferred_contact_at=preferred_contact_at,
         topic=topic,
         notes=notes,
-        session_id=session_id,
     )
 
     tg_ok, tg_mid, tg_err = send_lead_message(text)
@@ -113,9 +178,11 @@ def submit_lead_from_tool(
         lead.telegram_message_id = tg_mid
         lead.status = "notified"
         lead.error_detail = None
+        logger.info("Lead %s sent to Telegram, message_id=%s", lead.id, tg_mid)
     elif tg_err:
         lead.error_detail = tg_err
         lead.status = "failed" if settings.telegram_bot_token.strip() else "new"
+        logger.warning("Lead %s: Telegram не отправлено: %s", lead.id, tg_err)
 
     if settings.email_leads_enabled:
         subj = f"Заявка #{lead.id} — {display_name or phone}"
