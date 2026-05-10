@@ -198,6 +198,9 @@ def submit_lead_from_tool(
     return {
         "ok": True,
         "lead_id": lead.id,
+        "display_name": display_name,
+        "preferred_contact_at": preferred_contact_at,
+        "topic": topic,
         "telegram_notified": bool(tg_ok),
         "telegram_error": tg_err,
         "message": "Заявка сохранена.",

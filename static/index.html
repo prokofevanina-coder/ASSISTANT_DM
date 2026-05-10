@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Чат — Александр</title>
+  <title>Чат с менеджером</title>
   <style>
     :root {
       --header-blue: #2f6feb;
@@ -21,20 +21,13 @@
       margin: 0;
       min-height: 100vh;
       font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: linear-gradient(160deg, #eef2f7 0%, #e2e8f0 100%);
+      background: #f3f4f6;
       color: var(--text);
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      padding: 1.5rem 1rem 2rem;
-    }
-    .page-title {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin: 0 0 1rem;
-      letter-spacing: 0.02em;
+      justify-content: center;
+      padding: 1rem;
     }
     .widget {
       width: 100%;
@@ -45,7 +38,7 @@
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      max-height: min(720px, calc(100vh - 5rem));
+      max-height: min(720px, calc(100vh - 2rem));
       transition: opacity 0.2s, transform 0.2s;
     }
     .widget.hidden {
@@ -132,17 +125,6 @@
     }
     .icon-btn:hover { background: rgba(255, 255, 255, 0.15); }
     .icon-btn.sound-on { font-size: 1rem; }
-    .handoff-banner {
-      display: none;
-      padding: 0.45rem 0.75rem;
-      background: #eff6ff;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.72rem;
-      color: #1e40af;
-      line-height: 1.35;
-    }
-    .handoff-banner.visible { display: block; }
-    .handoff-banner strong { color: #1e3a8a; font-weight: 600; }
     .chat-wrap {
       flex: 1;
       display: flex;
@@ -267,37 +249,6 @@
     }
     #send:hover { background: var(--header-blue-dark); }
     #send:disabled { opacity: 0.45; cursor: not-allowed; }
-    .widget-footer-actions {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-      flex-wrap: wrap;
-      padding: 0 0.65rem 0.65rem;
-      background: #fff;
-    }
-    .widget-footer-actions button {
-      font: inherit;
-      font-size: 0.72rem;
-      padding: 0.35rem 0.65rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #f9fafb;
-      color: var(--text-muted);
-      cursor: pointer;
-    }
-    .widget-footer-actions button:hover {
-      border-color: #cbd5e1;
-      color: var(--text);
-    }
-    .hint {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-top: 1rem;
-      text-align: center;
-      max-width: 420px;
-      line-height: 1.45;
-    }
-    .hint code { font-size: 0.68rem; background: #e5e7eb; padding: 0.1rem 0.25rem; border-radius: 4px; }
     .fab-reopen {
       position: fixed;
       bottom: 1.5rem;
@@ -317,13 +268,11 @@
   </style>
 </head>
 <body>
-  <p class="page-title">Виджет ассистента (локальный тест)</p>
-
   <div class="widget" id="widget" aria-label="Чат с менеджером">
     <header class="widget-header">
       <div class="hdr-left">
         <div class="avatar-wrap">
-          <img src="avatar.png" width="44" height="44" alt="" />
+          <img src="alexandr.png" width="44" height="44" alt="Александр" />
           <span class="online" title="На связи"></span>
         </div>
         <div class="hdr-text">
@@ -338,56 +287,39 @@
       </div>
     </header>
 
-    <div id="handoff-banner" class="handoff-banner" role="status">
-      <strong>Заявка уже у специалиста.</strong>
-      Контакты из диалога переданы менеджеру — повторно имя и телефон спрашивать не должны.
-    </div>
-
     <div class="chat-wrap">
       <div id="log" class="chat-scroll" aria-live="polite"></div>
     </div>
 
     <div class="composer">
-      <textarea id="msg" rows="4" maxlength="12000" autocomplete="off" placeholder="Напишите сообщение… (Enter — отправить, Shift+Enter — новая строка)"></textarea>
+      <textarea
+        id="msg"
+        rows="4"
+        maxlength="12000"
+        autocomplete="off"
+        placeholder="Напишите сообщение…"
+        title="Enter — отправить, Shift+Enter — перенос строки"
+      ></textarea>
       <button type="button" id="send" title="Отправить" aria-label="Отправить">➤</button>
-    </div>
-
-    <div class="widget-footer-actions">
-      <button type="button" id="reset">Новая сессия</button>
-      <button type="button" id="hello">Пример: про тренинги</button>
     </div>
   </div>
 
   <button type="button" class="fab-reopen" id="widget-reopen" hidden aria-label="Открыть чат">💬</button>
 
-  <p class="hint">
-    Откройте с того же хоста, что и API: <code>http://127.0.0.1:8000/ui/</code>.
-    Заявка в Telegram уходит, если в <code>.env</code> заданы и <strong>TELEGRAM_BOT_TOKEN</strong>, и <strong>TELEGRAM_LEAD_CHAT_ID</strong>
-    (ID чата можно узнать у <code>@userinfobot</code> или добавив бота в группу и взяв id группы).
-    Для проверки без диалога: <code>python scripts/test_telegram.py</code>.
-  </p>
-
   <script>
     const STORAGE_KEY = "assistant_dm_session_id";
 
-    function leadStorageKey(sid) {
-      return "assistant_dm_has_lead:" + sid;
-    }
-
     const logEl = document.getElementById("log");
-    const handoffBanner = document.getElementById("handoff-banner");
     const input = document.getElementById("msg");
     const sendBtn = document.getElementById("send");
     const typingStatus = document.getElementById("typing-status");
     const widgetEl = document.getElementById("widget");
     const widgetClose = document.getElementById("widget-close");
     const widgetReopen = document.getElementById("widget-reopen");
-    const helloBtn = document.getElementById("hello");
 
     function setSending(on) {
       input.disabled = on;
       sendBtn.disabled = on;
-      helloBtn.disabled = on;
     }
 
     function apiBase() {
@@ -401,18 +333,6 @@
         sessionStorage.setItem(STORAGE_KEY, id);
       }
       return id;
-    }
-
-    function clearSession() {
-      const sid = sessionStorage.getItem(STORAGE_KEY);
-      if (sid) sessionStorage.removeItem(leadStorageKey(sid));
-      sessionStorage.removeItem(STORAGE_KEY);
-    }
-
-    function syncHandoffBanner() {
-      const sid = sessionStorage.getItem(STORAGE_KEY);
-      const on = sid && sessionStorage.getItem(leadStorageKey(sid)) === "1";
-      handoffBanner.classList.toggle("visible", Boolean(on));
     }
 
     function nowTimeLabel() {
@@ -562,9 +482,6 @@
           return;
         }
         if (data.session_id) sessionStorage.setItem(STORAGE_KEY, data.session_id);
-        const sidFinal = data.session_id || sid;
-        if (data.session_has_lead) sessionStorage.setItem(leadStorageKey(sidFinal), "1");
-        syncHandoffBanner();
         await appendAssistantTyping(data.reply || "(пустой ответ)");
         if (soundEnabled && typeof Audio !== "undefined") {
           try {
@@ -600,32 +517,11 @@
       }
     });
 
-    document.getElementById("reset").addEventListener("click", () => {
-      clearSession();
-      logEl.innerHTML = "";
-      syncHandoffBanner();
-      appendDateSeparator();
-      appendBubble(
-        "assistant",
-        "Приветствую Вас! Я ассистент Дмитрия Мальцева. Напишите, какой тренинг вас интересует, а я отвечу на ваши вопросы."
-      );
-      appendBubble(
-        "system",
-        "Новая сессия: контекст на сервере привязан к session_id — он обновлён."
-      );
-      input.focus();
-    });
-
-    document.getElementById("hello").addEventListener("click", () => {
-      sendMessage("Здравствуйте! Какие у вас есть тренинги?");
-    });
-
     appendDateSeparator();
     appendBubble(
       "assistant",
       "Приветствую Вас! Я ассистент Дмитрия Мальцева. Напишите, какой тренинг вас интересует, а я отвечу на ваши вопросы."
     );
-    syncHandoffBanner();
     input.focus();
   </script>
 </body>
