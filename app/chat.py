@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +23,29 @@ from app.llm import SUBMIT_LEAD_TOOL, chat_completion
 from app.models import ChatMessage, ChatSession, Lead
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_markdown_for_chat(text: str) -> str:
+    """
+    Убирает типичную разметку Markdown из ответа: # заголовки, **…**, списки (-, *, + в начале строки).
+    Чат рендерит plain text — без этой очистки остаются «лишние» символы ** #- -
+    """
+    if not text:
+        return text
+    s = text
+    s = re.sub(r"(?m)^#{1,6}\s*", "", s)
+    for _ in range(8):
+        prev = s
+        s = re.sub(r"__([^_]+)__", r"\1", s)
+        if s == prev:
+            break
+    s = s.replace("__", "")
+    s = s.replace("**", "")
+    dash = r"\-\u2010\u2011\u2012\u2013\u2014\u2212"
+    bullet = rf"(?:[*+•]|[{dash}])"
+    s = re.sub(rf"(?m)^[\s\uFEFF]*{bullet}\s+", "• ", s)
+    return s.strip()
+
 
 _PROMPT_TEXT: str | None = None
 _PROMPT_MTIME: float | None = None
@@ -219,6 +243,8 @@ def run_turn(
 
     if not final_text:
         final_text = "Извините, не удалось сформулировать ответ. Попробуйте переформулировать вопрос."
+
+    final_text = _strip_markdown_for_chat(final_text)
 
     am = ChatMessage(session_id=sid, role="assistant", content=final_text)
     db.add(am)
